@@ -4,7 +4,8 @@
 
 A 3D web library where visitors wander through a Gaussian splat bookshelf, click on glowing books, and read full-text classics from Project Gutenberg in a warm, paper-textured reading panel.
 
-<img width="707" height="470" alt=" screenshot" src="https://github.com/user-attachments/assets/9233c087-ef41-4d35-a2a8-3a7c5e3dfc0a" />
+<img width="1287" height="682" alt="screenshot" src="https://github.com/user-attachments/assets/ecc49e2a-5431-476a-8515-98de1171c688" />
+
 
 ---
 
