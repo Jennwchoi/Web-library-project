@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Quiet Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+
+<script type="importmap">
+{ "imports": { "three": "./three.module.js" } }
+</script>
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg:    #09060303;
+  --paper: #F2E1BC;
+  --pm:    #E6D1A0;
+  --pd:    #D9BC7D;
+  --brass: #C9A96E;
+  --bd:    #7A5E2A;
+  --ink:   #18100A;
+  --muted: #7A6248;
+  --bdr:   rgba(201,169,110,.18);
+}
+html,body { width:100%;height:100%;overflow:hidden;background:#090603;font-family:'EB Garamond',Georgia,serif;color:var(--paper); }
+
+/* LOADING */
+#loading {
+  position:fixed;inset:0;z-index:900;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.6rem;
+  background:radial-gradient(ellipse at 40% 55%,#1E0F06,#090603);
+  transition:opacity .9s ease;
+}
+#loading.fade{opacity:0;pointer-events:none}
+.ld-t{font-family:'Playfair Display',serif;font-size:clamp(2rem,5vw,4rem);font-weight:400;color:var(--brass);letter-spacing:.12em}
+.ld-t em{font-style:italic}
+.ld-s{font-size:.8rem;color:var(--muted);font-style:italic;letter-spacing:.18em}
+.ld-h{font-size:.68rem;color:var(--bd);opacity:.6;font-style:italic}
+.prog{width:220px}
+.prog-bg{height:1px;background:rgba(201,169,110,.12)}
+.prog-f{height:100%;background:var(--brass);width:0%;transition:width .4s ease}
+.prog-p{text-align:right;font-size:.68rem;color:var(--muted);margin-top:.35rem;font-style:italic}
+
+/* VIEWER */
+#viewer{position:fixed;inset:0}
+#splat-container{width:100%;height:100%;position:relative;cursor:pointer}
+
+/* HOTSPOTS */
+.hotspot{position:absolute;width:40px;height:40px;transform:translate(-50%,-50%);cursor:pointer;z-index:20;transition:transform .2s}
+.hotspot:hover{transform:translate(-50%,-50%) scale(1.22)}
+.hs-ring{position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(201,169,110,.25);animation:hring 3s ease-in-out infinite}
+.hs-core{width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;animation:hglow 3s ease-in-out infinite}
+.hotspot-label{position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:'Playfair Display',serif;font-size:.65rem;color:rgba(201,169,110,.75);font-style:italic;pointer-events:none;opacity:0;transition:opacity .2s}
+.hotspot:hover .hotspot-label{opacity:1}
+@keyframes hring{0%,100%{transform:scale(1);opacity:.3}50%{transform:scale(1.3);opacity:.06}}
+@keyframes hglow{0%,100%{box-shadow:0 0 14px rgba(201,169,110,.45),0 0 28px rgba(201,169,110,.15)}50%{box-shadow:0 0 24px rgba(201,169,110,.8),0 0 48px rgba(201,169,110,.3)}}
+
+/* ADMIN BAR */
+#admin-bar{position:fixed;bottom:0;left:0;right:0;height:54px;background:rgba(9,6,3,.95);border-top:1px solid var(--bdr);display:none;align-items:center;justify-content:center;gap:1rem;backdrop-filter:blur(10px);z-index:300}
+#admin-bar.show{display:flex}
+.ctrl{font-family:'EB Garamond',serif;font-size:.72rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid rgba(201,169,110,.2);padding:.35rem 1rem;cursor:pointer;transition:all .2s}
+.ctrl:hover{color:var(--brass);border-color:rgba(201,169,110,.45)}
+.ctrl.on{color:var(--ink);background:var(--brass);border-color:var(--brass)}
+#adm-lbl{font-family:'Playfair Display',serif;font-size:.72rem;color:var(--brass);font-style:italic;opacity:.6;margin-right:.3rem}
+#place-hint{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(9,6,3,.92);border:1px solid var(--bd);padding:.48rem 1.4rem;color:var(--brass);font-style:italic;font-size:.78rem;pointer-events:none;backdrop-filter:blur(8px);z-index:400;opacity:0;transition:opacity .3s;white-space:nowrap}
+#place-hint.show{opacity:1}
+
+/* EXPORT */
+#export-modal{position:fixed;inset:0;background:rgba(0,0,0,.76);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:800}
+#export-modal.show{display:flex}
+.exp-box{background:var(--ink);border:1px solid var(--bd);width:min(540px,92vw);padding:2rem}
+.exp-box h3{font-family:'Playfair Display',serif;color:var(--brass);font-size:1.05rem;font-weight:400;margin-bottom:.75rem}
+.exp-box p{font-size:.75rem;color:var(--muted);font-style:italic;margin-bottom:.75rem;line-height:1.6}
+#exp-code{width:100%;height:120px;background:#0D0904;border:1px solid var(--bdr);color:var(--paper);font-family:monospace;font-size:.7rem;padding:.7rem;resize:none;outline:none;line-height:1.5}
+.exp-btns{display:flex;gap:.8rem;margin-top:.85rem}
+.exp-btn{flex:1;padding:.45rem;font-family:'EB Garamond',serif;font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .2s;border:none}
+.exp-copy{background:var(--brass);color:var(--ink)}
+.exp-copy:hover{background:var(--pd)}
+.exp-close{background:transparent;border:1px solid var(--bdr) !important;color:var(--muted)}
+.exp-close:hover{border-color:var(--brass) !important;color:var(--brass)}
+
+/* PICKER */
+#picker{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;visibility:hidden;transition:all .28s}
+#picker.show{opacity:1;visibility:visible}
+.pk-panel{background:var(--ink);border:1px solid var(--bd);width:min(450px,92vw);max-height:70vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.65)}
+.pk-hd{padding:1.2rem 1.7rem .75rem;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.pk-hd h2{font-family:'Playfair Display',serif;font-size:1rem;font-weight:400;color:var(--brass)}
+.pk-hd p{font-size:.72rem;color:var(--muted);font-style:italic;margin-top:.18rem}
+.pk-list{overflow-y:auto;flex:1;padding:.35rem 0}
+.pk-list::-webkit-scrollbar{width:3px}
+.pk-list::-webkit-scrollbar-thumb{background:var(--bd)}
+.bk-row{display:flex;align-items:center;gap:.85rem;padding:.62rem 1.7rem;cursor:pointer;transition:background .16s;border-bottom:1px solid rgba(201,169,110,.04)}
+.bk-row:hover{background:rgba(201,169,110,.06)}
+.bk-row:hover .bk-t{color:var(--brass)}
+.bk-spine{width:7px;height:42px;border-radius:1px;flex-shrink:0}
+.bk-t{font-family:'Playfair Display',serif;font-size:.88rem;color:var(--paper);transition:color .16s}
+.bk-a{font-size:.72rem;color:var(--muted);font-style:italic;margin-top:.12rem}
+.bk-y{font-size:.66rem;color:var(--bd);margin-top:.08rem}
+.pk-ft{padding:.65rem 1.7rem;border-top:1px solid var(--bdr);flex-shrink:0}
+.pk-cancel{background:none;border:none;color:var(--muted);font-family:'EB Garamond',serif;font-size:.74rem;cursor:pointer;text-decoration:underline}
+
+/* READING PANEL */
+#reader{position:fixed;top:0;right:-630px;width:min(610px,100vw);height:100vh;background:var(--paper);z-index:700;transition:right .5s cubic-bezier(.25,.46,.45,.94);display:flex;flex-direction:column;box-shadow:-20px 0 70px rgba(0,0,0,.55)}
+#reader.open{right:0}
+.rp-hd{background:var(--ink);padding:1.5rem 2rem 1.3rem;border-bottom:3px solid var(--brass);flex-shrink:0;position:relative}
+.rp-x{position:absolute;top:.85rem;right:.85rem;width:29px;height:29px;background:transparent;border:1px solid rgba(201,169,110,.28);color:var(--brass);cursor:pointer;font-size:.85rem;transition:all .2s}
+.rp-x:hover{background:var(--brass);color:var(--ink)}
+.rp-ttl{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:400;color:var(--brass);padding-right:2.4rem;line-height:1.25;margin-bottom:.28rem}
+.rp-auth{font-size:.78rem;color:var(--muted);font-style:italic}
+.rp-meta{font-size:.67rem;color:var(--bd);margin-top:.18rem;letter-spacing:.08em}
+.rp-body{flex:1;overflow-y:auto;padding:2.2rem 2.4rem;background:var(--paper);background-image:repeating-linear-gradient(transparent,transparent 30px,rgba(180,150,90,.065) 30px,rgba(180,150,90,.065) 31px)}
+.rp-body::-webkit-scrollbar{width:4px}
+.rp-body::-webkit-scrollbar-track{background:var(--pd)}
+.rp-body::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+.book-text{color:var(--ink);font-size:1.05rem;line-height:1.9}
+.book-text p{margin-bottom:1.05em;text-indent:2em}
+.book-text p:first-of-type{text-indent:0}
+.ch-hd{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;text-align:center;margin:1.8em 0 1em;color:var(--ink);letter-spacing:.05em}
+.msg{text-align:center;padding:3rem;font-style:italic;color:var(--muted);line-height:1.75}
+.msg a{color:var(--bd);text-decoration:none}
+.msg a:hover{color:var(--brass)}
+.rp-ft{padding:.75rem 2rem;border-top:1px solid var(--pm);background:var(--pm);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.gut-lnk{font-size:.73rem;color:var(--bd);text-decoration:none;font-style:italic;transition:color .2s}
+.gut-lnk:hover{color:var(--brass)}
+.rd-pct{font-size:.68rem;color:var(--muted)}
+
+/* MUSIC BUTTON */
+#music-btn{position:fixed;bottom:22px;right:22px;z-index:210;width:40px;height:40px;background:rgba(9,6,3,.82);border:1px solid rgba(201,169,110,.22);color:rgba(201,169,110,.5);cursor:pointer;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-size:17px;transition:all .25s;opacity:0}
+#music-btn.visible{opacity:1}
+#music-btn:hover{border-color:rgba(201,169,110,.5);color:var(--brass)}
+#music-btn.on{color:var(--brass);border-color:rgba(201,169,110,.4)}
+#music-btn .music-tooltip{position:absolute;right:46px;white-space:nowrap;background:rgba(9,6,3,.9);border:1px solid rgba(201,169,110,.18);padding:.28rem .75rem;font-family:'EB Garamond',serif;font-size:.68rem;color:var(--muted);font-style:italic;pointer-events:none;opacity:0;transition:opacity .2s}
+#music-btn:hover .music-tooltip{opacity:1}
+
+/* BROWSE HINT */
+#browse-hint{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:rgba(9,6,3,.82);border:1px solid rgba(201,169,110,.22);padding:.52rem 1.5rem;color:rgba(201,169,110,.72);font-style:italic;font-size:.78rem;pointer-events:none;backdrop-filter:blur(8px);z-index:200;white-space:nowrap;letter-spacing:.06em;transition:opacity .4s;opacity:0}
+#browse-hint.show{opacity:1}
+
+/* BOOK OPEN ANIMATION */
+#book-anim{position:fixed;inset:0;z-index:650;display:flex;align-items:center;justify-content:center;background:rgba(5,3,1,0);opacity:0;pointer-events:none;transition:background .45s,opacity .35s;backdrop-filter:blur(0px)}
+#book-anim.active{opacity:1;pointer-events:all;background:rgba(5,3,1,.9);backdrop-filter:blur(3px)}
+.bk-scene{perspective:1100px;transition:transform .35s}
+#book-anim.active .bk-scene{animation:bookAppear .4s cubic-bezier(.34,1.28,.64,1) forwards}
+@keyframes bookAppear{from{transform:scale(.78) translateY(18px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.bk-wrap{width:210px;height:290px;position:relative;transform-style:preserve-3d;transform:rotateX(10deg) rotateY(-7deg)}
+/* Pages body */
+.bk-body{position:absolute;inset:0;background:#f0ddb6;box-shadow:inset -3px 0 8px rgba(0,0,0,.1)}
+/* Right page-edge */
+.bk-page-r{position:absolute;right:-11px;top:2px;width:11px;height:286px;background:linear-gradient(to right,#d9c080,#f5e8c0,#ddc878);transform:rotateY(90deg);transform-origin:left center}
+/* Spine face */
+.bk-spine-f{position:absolute;left:-22px;top:0;width:22px;height:290px;transform:rotateY(-90deg);transform-origin:right center;border-right:1px solid rgba(0,0,0,.18)}
+/* Front cover — pivots on left edge */
+.bk-front{position:absolute;inset:0;transform-style:preserve-3d;transform-origin:left center}
+.bk-front.is-open{animation:coverOpen 1.15s cubic-bezier(.22,.72,0,1.18) .1s forwards}
+@keyframes coverOpen{
+  0%  {transform:rotateY(0deg)}
+  68% {transform:rotateY(-170deg)}
+  100%{transform:rotateY(-163deg)}
+}
+/* Cover outer face */
+.bk-face{position:absolute;inset:0;backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+.bk-face-border{position:absolute;inset:10px;border:1px solid rgba(255,255,255,.13);pointer-events:none}
+.bk-face-title{font-family:'Playfair Display',serif;font-size:13px;color:rgba(255,242,205,.93);text-align:center;padding:0 18px;line-height:1.4;position:relative;z-index:1}
+.bk-face-rule{width:38px;height:1px;background:rgba(255,210,130,.28);margin:9px 0;flex-shrink:0}
+.bk-face-author{font-size:7.5px;color:rgba(255,218,140,.58);font-style:italic;letter-spacing:.12em;position:relative;z-index:1}
+/* Cover inner face (visible when open) */
+.bk-inside{position:absolute;inset:0;backface-visibility:hidden;transform:rotateY(180deg);background:linear-gradient(135deg,#f8f0dc,#f0e4c0);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;gap:6px}
+.bk-inside-title{font-family:'Playfair Display',serif;font-size:15px;color:#2e1c0a;text-align:center;font-style:italic;line-height:1.4}
+.bk-inside-rule{width:30px;height:1px;background:#b89050;margin:4px auto}
+.bk-inside-author{font-size:7.5px;color:#6a4a28;letter-spacing:.14em;text-transform:uppercase}
+.bk-inside-year{font-size:7px;color:#9a7040;margin-top:4px;font-style:italic}
+
+/* GRAIN */
+#grain{position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.022;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:200px}
+</style>
+</head>
+<body>
+<div id="grain"></div>
+
+<div id="loading">
+  <div class="ld-t">The <em>Quiet</em> Library</div>
+  <div class="ld-s" id="ld-s">Opening the library doors…</div>
+  <div class="prog"><div class="prog-bg"><div class="prog-f" id="prog-f"></div></div><div class="prog-p" id="prog-p">0%</div></div>
+  <div class="ld-h" id="ld-h"></div>
+</div>
+
+<div id="viewer"><div id="splat-container"></div></div>
+<div id="place-hint">✦ Click on the bookshelf to place a book marker</div>
+<div id="browse-hint">✦ Click anywhere on the shelf to browse &amp; read</div>
+
+<div id="admin-bar">
+  <span id="adm-lbl">Admin ·</span>
+  <button class="ctrl" id="btn-place" onclick="togglePlace()">＋ Place Book</button>
+  <button class="ctrl" onclick="undoLast()">↩ Undo</button>
+  <button class="ctrl" onclick="clearAll()">Clear All</button>
+  <span style="color:var(--muted);font-size:.72rem;letter-spacing:.08em;font-family:'EB Garamond',serif">Splat Y:</span>
+  <button class="ctrl" onclick="nudgeSplat(-0.5)">▲ Up</button>
+  <span id="splat-val" style="color:var(--brass);font-size:.72rem;font-family:monospace;min-width:2.8rem;text-align:center">2.0</span>
+  <button class="ctrl" onclick="nudgeSplat(+0.5)">▼ Down</button>
+  <button class="ctrl" onclick="showExport()">Export JSON</button>
+  <span style="color:var(--muted);font-size:.72rem;letter-spacing:.08em;font-family:'EB Garamond',serif;margin-left:.4rem">Zone:</span>
+  <button class="ctrl" onclick="nudgeZone('x0',-.02)">◀ L</button>
+  <button class="ctrl" onclick="nudgeZone('x0', .02)">R ▶</button>
+  <button class="ctrl" onclick="nudgeZone('x1',-.02)">◀ R</button>
+  <button class="ctrl" onclick="nudgeZone('x1', .02)">R ▶</button>
+  <button class="ctrl" onclick="nudgeZone('y0',-.02)">▲ T</button>
+  <button class="ctrl" onclick="nudgeZone('y0', .02)">▼ T</button>
+  <button class="ctrl" onclick="nudgeZone('y1',-.02)">▲ B</button>
+  <button class="ctrl" onclick="nudgeZone('y1', .02)">▼ B</button>
+  <span id="zone-display" style="color:var(--brass);font-size:.62rem;font-family:monospace;min-width:12rem;text-align:center">x 0.27–0.63  y 0.02–0.98</span>
+</div>
+
+<div id="export-modal">
+  <div class="exp-box">
+    <h3>Copy Hotspot Positions</h3>
+    <p>Paste this into the <code style="color:var(--brass)">HOTSPOTS</code> array in the HTML, then re-upload. Visitors will see the books automatically.</p>
+    <textarea id="exp-code" readonly></textarea>
+    <div class="exp-btns">
+      <button class="exp-btn exp-copy" onclick="doCopy()">Copy to Clipboard</button>
+      <button class="exp-btn exp-close" onclick="closeExport()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="picker">
+  <div class="pk-panel">
+    <div class="pk-hd"><h2>Assign a Book to this Spot</h2><p>It will glow on the shelf for all visitors</p></div>
+    <div class="pk-list" id="pk-list"></div>
+    <div class="pk-ft"><button class="pk-cancel" onclick="closePicker()">Cancel</button></div>
+  </div>
+</div>
+
+<div id="reader">
+  <div class="rp-hd">
+    <button class="rp-x" onclick="closeReader()">✕</button>
+    <div class="rp-ttl" id="rp-ttl"></div>
+    <div class="rp-auth" id="rp-auth"></div>
+    <div class="rp-meta" id="rp-meta"></div>
+  </div>
+  <div class="rp-body" id="rp-body" onscroll="onScroll()">
+    <div class="book-text" id="book-text"></div>
+  </div>
+  <div class="rp-ft">
+    <a href="#" class="gut-lnk" id="gut-lnk" target="_blank">Full text on Project Gutenberg →</a>
+    <span class="rd-pct" id="rd-pct"></span>
+  </div>
+</div>
+
+<button id="music-btn" onclick="toggleMusic()" title="Toggle ambient music">
+  <span class="music-tooltip">ambient sounds</span>♪
+</button>
+
+<!-- BOOK OPEN ANIMATION OVERLAY -->
+<div id="book-anim">
+  <div class="bk-scene">
+    <div class="bk-wrap">
+      <div class="bk-body"></div>
+      <div class="bk-page-r"></div>
+      <div class="bk-spine-f" id="bk-spine-f"></div>
+      <div class="bk-front" id="bk-front">
+        <div class="bk-face" id="bk-face">
+          <div class="bk-face-border"></div>
+          <div class="bk-face-title" id="bk-face-title"></div>
+          <div class="bk-face-rule"></div>
+          <div class="bk-face-author" id="bk-face-author"></div>
+        </div>
+        <div class="bk-inside">
+          <div class="bk-inside-title" id="bk-ins-title"></div>
+          <div class="bk-inside-rule"></div>
+          <div class="bk-inside-author" id="bk-ins-author"></div>
+          <div class="bk-inside-year" id="bk-ins-year"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ═══════════════════════════════════════════════
+//  CONFIG — Edit these
+// ═══════════════════════════════════════════════
+const PLY_URL = './bookshelf compressed.ply';
+
+// After using Admin Mode (Shift+A → Place Books), paste exported JSON here:
+const HOTSPOTS = [
+  // { bookId: 1342, x: 0.25, y: 0.45 },
+];
+
+// Screen-space hit zone for the middle bookshelf (fractions 0–1).
+// Clicks outside this box are ignored for book browsing.
+// Use Admin Mode (Shift+A) to see the zone outline and nudge it.
+let SHELF_ZONE = { x0: 0.27, x1: 0.63, y0: 0.02, y1: 0.98 };
+
+// ═══════════════════════════════════════════════
+//  BOOKS
+// ═══════════════════════════════════════════════
+const BOOKS = [
+  { id:1342, title:"Pride and Prejudice",                      author:"Jane Austen",                    year:1813, color:"#7A3B1A" },
+  { id:84,   title:"Frankenstein",                             author:"Mary Shelley",                   year:1818, color:"#2E4E4E" },
+  { id:11,   title:"Alice's Adventures in Wonderland",         author:"Lewis Carroll",                  year:1865, color:"#4A3070" },
+  { id:2701, title:"Moby-Dick",                                author:"Herman Melville",                year:1851, color:"#1B3558" },
+  { id:174,  title:"The Picture of Dorian Gray",               author:"Oscar Wilde",                    year:1890, color:"#2A4A1C" },
+  { id:1260, title:"Jane Eyre",                                author:"Charlotte Brontë",               year:1847, color:"#6E3232" },
+  { id:2554, title:"Crime and Punishment",                     author:"Fyodor Dostoevsky",              year:1866, color:"#422A28" },
+  { id:5200, title:"The Metamorphosis",                        author:"Franz Kafka",                    year:1915, color:"#383828" },
+  { id:1661, title:"The Adventures of Sherlock Holmes",        author:"Arthur Conan Doyle",             year:1892, color:"#52351A" },
+  { id:345,  title:"Dracula",                                  author:"Bram Stoker",                    year:1897, color:"#38181A" },
+  { id:35,   title:"The Time Machine",                         author:"H.G. Wells",                     year:1895, color:"#1A3638" },
+  { id:1400, title:"Great Expectations",                       author:"Charles Dickens",                year:1861, color:"#50401A" },
+  { id:768,  title:"Wuthering Heights",                        author:"Emily Brontë",                   year:1847, color:"#5A3028" },
+  { id:1952, title:"The Yellow Wallpaper",                     author:"Charlotte P. Gilman",            year:1892, color:"#485A20" },
+  { id:23,   title:"Narrative of the Life of Frederick Douglass", author:"Frederick Douglass",         year:1845, color:"#3A2410" },
+  { id:98,   title:"A Tale of Two Cities",                     author:"Charles Dickens",                year:1859, color:"#4A2E0E" },
+  { id:76,   title:"Adventures of Huckleberry Finn",           author:"Mark Twain",                     year:1884, color:"#3A5020" },
+  { id:74,   title:"The Adventures of Tom Sawyer",             author:"Mark Twain",                     year:1876, color:"#5A4820" },
+  { id:514,  title:"Little Women",                             author:"Louisa May Alcott",              year:1868, color:"#6A3848" },
+  { id:161,  title:"Sense and Sensibility",                    author:"Jane Austen",                    year:1811, color:"#6A3A2A" },
+  { id:158,  title:"Emma",                                     author:"Jane Austen",                    year:1815, color:"#7A4A2A" },
+  { id:36,   title:"The War of the Worlds",                    author:"H.G. Wells",                     year:1898, color:"#1E3045" },
+  { id:103,  title:"Around the World in Eighty Days",          author:"Jules Verne",                    year:1872, color:"#2A4035" },
+  { id:164,  title:"Twenty Thousand Leagues Under the Sea",    author:"Jules Verne",                    year:1870, color:"#1A3040" },
+  { id:43,   title:"The Strange Case of Dr Jekyll and Mr Hyde",author:"Robert Louis Stevenson",         year:1886, color:"#303028" },
+  { id:120,  title:"Treasure Island",                          author:"Robert Louis Stevenson",         year:1883, color:"#3A4A1A" },
+  { id:135,  title:"Les Misérables",                           author:"Victor Hugo",                    year:1862, color:"#2E2248" },
+  { id:1184, title:"The Count of Monte Cristo",                author:"Alexandre Dumas",                year:1844, color:"#1A2E38" },
+  { id:25344,title:"The Scarlet Letter",                       author:"Nathaniel Hawthorne",            year:1850, color:"#5A1A1A" },
+  { id:1727, title:"The Odyssey",                              author:"Homer (tr. Butler)",              year:-800,  color:"#5A4A10" },
+];
+
+// ═══════════════════════════════════════════════
+//  BUILD LIBRARY ROOM (Three.js)
+// ═══════════════════════════════════════════════
+// ── Coordinate system note ──────────────────────────
+// cameraUp=[0,-1,0]: the Y axis is visually flipped.
+//   +Y  →  screen BOTTOM  (floor lives here, large positive Y)
+//   -Y  →  screen TOP     (ceiling lives here, large negative Y)
+//   Lamps rise from floor toward -Y (visually upward)
+// ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════
+//  STANDARD Y-UP coordinates throughout
+//  Floor below (negative Y), ceiling above (positive Y)
+//  SPLAT_Y: shift splat up/down to align with floor
+//     increase → splat moves UP (toward ceiling)
+//     decrease → splat moves DOWN (toward floor)
+// ═══════════════════════════════════════════════════
+const SPLAT_Y =  2.0;   // ← tweak with ▲/▼ buttons (+ = down visually in this flipped-camera space)
+
+const FLOOR_Y = -2.5;
+const CEIL_Y  =  7.0;
+const WALL_CY = (FLOOR_Y + CEIL_Y) / 2;
+const WALL_H  = Math.abs(FLOOR_Y - CEIL_Y) + 1;
+
+function buildRoom(g) {
+  // Note: "g" is a Group rotated 180° around X. Write normal Y-up code.
+  // Scene-level properties (bg, fog) go on its parent scene
+  const parentScene = g.parent;
+  parentScene.background = new THREE.Color(0x080503);
+  parentScene.fog = new THREE.FogExp2(0x100703, 0.042);
+
+  // Ambient goes on scene (not affected by group rotation)
+  parentScene.add(new THREE.AmbientLight(0xFFD4A0, 0.5));
+
+  // Point lights — Y positions between FLOOR_Y and CEIL_Y
+  const addLight = (x, y, z, i, d = 12) => {
+    const l = new THREE.PointLight(0xFF9848, i, d);
+    l.position.set(x, y, z);
+    g.add(l);
+  };
+  const MID = (FLOOR_Y + CEIL_Y) / 2;
+  addLight(-5,  MID, -2, 2.2, 14);
+  addLight( 5,  MID, -2, 2.2, 14);
+  addLight( 0,  MID,  3, 1.8, 12);
+  addLight(-8,  MID,  0, 2.5, 16);
+  addLight( 8,  MID,  0, 2.5, 16);
+  addLight( 0,  MID, -8, 2.2, 14);
+  addLight( 0,  CEIL_Y + 2, 0, 1.2, 10); // near ceiling fill
+
+  const mat = (col) => new THREE.MeshLambertMaterial({ color: col });
+
+  // ── FLOOR ──
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), mat(0x1A0C05));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = FLOOR_Y;
+  g.add(floor);
+
+  // ── CARPET on floor (bright, visible, warm glow) ──
+  const carpet = new THREE.Mesh(
+    new THREE.PlaneGeometry(8, 12),
+    new THREE.MeshBasicMaterial({ color: 0xFFE8B0, transparent: true, opacity: 0.15 })
+  );
+  carpet.rotation.x = -Math.PI / 2;
+  carpet.position.set(0, FLOOR_Y + 0.02, 0);
+  g.add(carpet);
+
+  // ── CEILING (plain, no glow panel) ──
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), mat(0x0E0804));
+  ceil.rotation.x = Math.PI / 2;
+  ceil.position.y = CEIL_Y;
+  g.add(ceil);
+
+  // ── WALLS ──
+  const addWall = (x, y, z, ry, w, h) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat(0x160A04));
+    m.rotation.y = ry;
+    m.position.set(x, y, z);
+    g.add(m);
+  };
+  addWall(  0, WALL_CY, -11,         0,   32, WALL_H);
+  addWall( -9, WALL_CY,   0,  Math.PI/2,  26, WALL_H);
+  addWall(  9, WALL_CY,   0, -Math.PI/2,  26, WALL_H);
+
+  // ── BOOKSHELVES ──
+  addBookshelfWall(g, -8.7, WALL_CY, -1, 'y',  Math.PI/2,  9, 7);
+  addBookshelfWall(g,  8.7, WALL_CY, -1, 'y', -Math.PI/2,  9, 7);
+  addBookshelfWall(g,    0, WALL_CY,-10, 'y',  0,          18, 7);
+
+  // ── FLOOR LAMPS ──
+  addFloorLamp(g, -3.5, 2);
+  addFloorLamp(g,  3.5, 2);
+}
+
+function addBookshelfWall(g, x, y, z, axis, rot, W, H) {
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+  if (axis === 'y') group.rotation.y = rot;
+
+  const frameMat = new THREE.MeshLambertMaterial({ color: 0x2A1408 });
+  const shelfMat = new THREE.MeshLambertMaterial({ color: 0x341A0A });
+
+  // Back panel
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(W, H), shelfMat);
+  back.position.z = -0.3;
+  group.add(back);
+
+  const rows = 6;
+  const rowH = H / rows;
+  const BOOK_COLORS = [0x7A3B1A,0x2E4E4E,0x4A3070,0x1B3558,0x2A4A1C,0x6E3232,0x422A28,0x383828,0x52351A,0x38181A];
+
+  for (let r = 0; r < rows; r++) {
+    const shelfY = (r - rows/2 + 0.5) * rowH;
+
+    // Shelf plank
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(W, 0.07, 0.32), frameMat);
+    plank.position.set(0, shelfY - rowH/2 + 0.035, 0);
+    group.add(plank);
+
+    // Books
+    let xPos = -W/2 + 0.04;
+    while (xPos < W/2 - 0.08) {
+      const bW = 0.07 + Math.random() * 0.12;
+      const bH = rowH * (0.58 + Math.random() * 0.36);
+      const col = BOOK_COLORS[Math.floor(Math.random() * BOOK_COLORS.length)];
+      const book = new THREE.Mesh(
+        new THREE.BoxGeometry(bW, bH, 0.26),
+        new THREE.MeshLambertMaterial({ color: col })
+      );
+      book.position.set(xPos + bW/2, shelfY - rowH/2 + 0.07 + bH/2, 0.02);
+      group.add(book);
+      xPos += bW + 0.006;
+    }
+  }
+  g.add(group);
+}
+
+function addFloorLamp(g, x, z) {
+  // Pendant light hanging from ceiling: thin cord from CEIL_Y down to bulb
+  const bulbY = CEIL_Y - 3.5;   // bulb hangs 3.5 units below ceiling
+  const cordLen = CEIL_Y - bulbY;
+  const cordCenterY = (CEIL_Y + bulbY) / 2;
+
+  const cord = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.015, 0.015, cordLen, 6),
+    new THREE.MeshBasicMaterial({ color: 0x3A2A14 })
+  );
+  cord.position.set(x, cordCenterY, z);
+  g.add(cord);
+
+  const shade = new THREE.Mesh(
+    new THREE.SphereGeometry(0.28, 16, 10),
+    new THREE.MeshBasicMaterial({ color: 0xFFE090, transparent: true, opacity: 0.92 })
+  );
+  shade.position.set(x, bulbY, z);
+  g.add(shade);
+
+  const l = new THREE.PointLight(0xFFCC55, 2.8, 9);
+  l.position.set(x, bulbY, z);
+  g.add(l);
+}
+
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let adminMode = false, placeMode = false;
+let pickerMode = 'read';   // 'read' | 'place'
+let viewerRef = null;      // full viewer instance
+let currentSplatY = 0;
+
+window.nudgeSplat = (delta) => {
+  currentSplatY += delta;
+  document.getElementById('splat-val').textContent = currentSplatY.toFixed(1);
+  const vt = document.getElementById('v-splat-y'); if (vt) vt.textContent = currentSplatY.toFixed(1);
+  if (viewerRef && viewerRef.splatMesh) {
+    const scene = viewerRef.splatMesh.getScene(0);
+    scene.position.y = currentSplatY;
+    viewerRef.splatMesh.updateTransforms();
+  }
+};
+let liveSpots = structuredClone(HOTSPOTS);
+let pendingXY = null;
+
+document.addEventListener('keydown', e => { if (e.shiftKey && e.key === 'A') toggleAdmin(); });
+if (location.search.includes('admin')) toggleAdmin();
+
+function toggleAdmin() {
+  adminMode = !adminMode;
+  document.getElementById('admin-bar').classList.toggle('show', adminMode);
+  document.getElementById('browse-hint').classList.toggle('show', !adminMode);
+  renderZoneOverlay(adminMode);
+  if (!adminMode) { placeMode = false; syncUI(); }
+}
+
+// ── Zone overlay (admin only) ──
+function renderZoneOverlay(show) {
+  let el = document.getElementById('zone-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'zone-overlay';
+    el.style.cssText = 'position:absolute;pointer-events:none;z-index:25;border:1px dashed rgba(201,169,110,.55);background:rgba(201,169,110,.04);box-sizing:border-box;transition:all .2s';
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'position:absolute;top:6px;left:50%;transform:translateX(-50%);font-family:\'EB Garamond\',serif;font-size:.62rem;color:rgba(201,169,110,.55);white-space:nowrap;letter-spacing:.1em';
+    lbl.textContent = '✦ middle shelf zone';
+    el.appendChild(lbl);
+    document.getElementById('splat-container').appendChild(el);
+  }
+  el.style.display = show ? 'block' : 'none';
+  if (show) {
+    el.style.left   = (SHELF_ZONE.x0 * 100) + '%';
+    el.style.top    = (SHELF_ZONE.y0 * 100) + '%';
+    el.style.width  = ((SHELF_ZONE.x1 - SHELF_ZONE.x0) * 100) + '%';
+    el.style.height = ((SHELF_ZONE.y1 - SHELF_ZONE.y0) * 100) + '%';
+  }
+}
+
+window.nudgeZone = (edge, delta) => {
+  SHELF_ZONE[edge] = Math.round((SHELF_ZONE[edge] + delta) * 100) / 100;
+  renderZoneOverlay(true);
+  document.getElementById('zone-display').textContent =
+    `x ${SHELF_ZONE.x0}–${SHELF_ZONE.x1}  y ${SHELF_ZONE.y0}–${SHELF_ZONE.y1}`;
+};
+window.togglePlace = () => { placeMode = !placeMode; syncUI(); };
+function syncUI() {
+  document.getElementById('btn-place').classList.toggle('on', placeMode);
+  document.getElementById('place-hint').classList.toggle('show', adminMode && placeMode);
+}
+
+// ═══════════════════════════════════════════════
+//  HOTSPOTS
+// ═══════════════════════════════════════════════
+function renderHotspots() {
+  const c = document.getElementById('splat-container');
+  c.querySelectorAll('.hotspot').forEach(h => h.remove());
+  liveSpots.forEach(hs => {
+    const book = BOOKS.find(b => b.id === hs.bookId);
+    if (!book) return;
+    const el = document.createElement('div');
+    el.className = 'hotspot';
+    el.style.left = (hs.x * 100) + '%';
+    el.style.top  = (hs.y * 100) + '%';
+    el.innerHTML = `
+      <div class="hs-ring"></div>
+      <div class="hs-core" style="background:radial-gradient(circle,${book.color}dd 0%,transparent 76%)">📖</div>
+      <div class="hotspot-label">${book.title}</div>`;
+    el.addEventListener('click', e => { e.stopPropagation(); openBookWithAnimation(book); });
+    c.appendChild(el);
+  });
+}
+
+function initClickPlace() {
+  document.getElementById('splat-container').addEventListener('click', e => {
+    if (e.target.closest('.hotspot')) return;
+    const r  = e.currentTarget.getBoundingClientRect();
+    const nx = (e.clientX - r.left) / r.width;
+    const ny = (e.clientY - r.top)  / r.height;
+    const inZone = nx >= SHELF_ZONE.x0 && nx <= SHELF_ZONE.x1 &&
+                   ny >= SHELF_ZONE.y0 && ny <= SHELF_ZONE.y1;
+
+    if (adminMode && placeMode) {
+      if (!inZone) return;
+      pendingXY = { x: nx, y: ny };
+      openPicker('place');
+    } else if (!adminMode && inZone) {
+      openPicker('read');
+    }
+  });
+}
+
+window.undoLast  = () => { liveSpots.pop(); renderHotspots(); };
+window.clearAll  = () => { if (confirm('Remove all markers?')) { liveSpots = []; renderHotspots(); } };
+window.showExport = () => {
+  document.getElementById('exp-code').value = JSON.stringify(liveSpots, null, 2);
+  document.getElementById('export-modal').classList.add('show');
+};
+window.closeExport = () => document.getElementById('export-modal').classList.remove('show');
+window.doCopy = () => {
+  navigator.clipboard.writeText(document.getElementById('exp-code').value);
+  const b = document.querySelector('.exp-copy'); b.textContent = '✓ Copied!';
+  setTimeout(() => b.textContent = 'Copy to Clipboard', 1800);
+};
+
+// ═══════════════════════════════════════════════
+//  PICKER
+// ═══════════════════════════════════════════════
+function openPicker(mode = 'read') {
+  pickerMode = mode;
+  const hd  = document.querySelector('.pk-hd h2');
+  const sub = document.querySelector('.pk-hd p');
+  if (mode === 'read') {
+    hd.textContent  = 'Browse the Shelves';
+    sub.textContent = 'Choose a volume to open and read';
+  } else {
+    hd.textContent  = 'Assign a Book to this Spot';
+    sub.textContent = 'It will glow on the shelf for all visitors';
+  }
+  document.getElementById('pk-list').innerHTML = BOOKS.map(b => `
+    <div class="bk-row" onclick="pickBook(${b.id})">
+      <div class="bk-spine" style="background:${b.color}"></div>
+      <div><div class="bk-t">${b.title}</div><div class="bk-a">${b.author}</div><div class="bk-y">${b.year > 0 ? b.year : 'c. 800 BC'}</div></div>
+    </div>`).join('');
+  document.getElementById('picker').classList.add('show');
+}
+window.closePicker = () => { document.getElementById('picker').classList.remove('show'); pendingXY = null; };
+window.pickBook = id => {
+  if (pickerMode === 'read') {
+    const book = BOOKS.find(b => b.id === id);
+    closePicker();
+    if (book) openBookWithAnimation(book);
+    return;
+  }
+  if (!pendingXY) return;
+  liveSpots.push({ bookId: id, x: pendingXY.x, y: pendingXY.y });
+  renderHotspots(); closePicker();
+};
+
+// ═══════════════════════════════════════════════
+//  BOOK ANIMATION → READER
+// ═══════════════════════════════════════════════
+function openBookWithAnimation(book) {
+  document.getElementById('browse-hint').classList.remove('show');
+
+  // Populate cover details
+  document.getElementById('bk-face-title').textContent  = book.title;
+  document.getElementById('bk-face-author').textContent = book.author;
+  document.getElementById('bk-ins-title').textContent   = book.title;
+  document.getElementById('bk-ins-author').textContent  = book.author;
+  document.getElementById('bk-ins-year').textContent    = book.year > 0 ? book.year : 'c. 800 BC';
+  document.getElementById('bk-face').style.background   = book.color;
+  document.getElementById('bk-spine-f').style.background = book.color;
+
+  // Restart cover-open animation cleanly
+  const front = document.getElementById('bk-front');
+  front.classList.remove('is-open');
+  void front.offsetWidth;
+  front.classList.add('is-open');
+
+  document.getElementById('book-anim').classList.add('active');
+
+  // Slide reader in as book finishes opening, then fade overlay
+  setTimeout(() => {
+    openReader(book);
+    setTimeout(() => document.getElementById('book-anim').classList.remove('active'), 420);
+  }, 1380);
+}
+
+// ═══════════════════════════════════════════════
+//  READER
+// ═══════════════════════════════════════════════
+function openReader(book) {
+  document.getElementById('browse-hint').classList.remove('show');
+  document.getElementById('rp-ttl').textContent  = book.title;
+  document.getElementById('rp-auth').textContent = book.author;
+  document.getElementById('rp-meta').textContent = `${book.year > 0 ? book.year : 'c. 800 BC'}  ·  Project Gutenberg`;
+  document.getElementById('gut-lnk').href = `https://www.gutenberg.org/ebooks/${book.id}`;
+  document.getElementById('book-text').innerHTML = '<div class="msg">Opening the book…</div>';
+  document.getElementById('reader').classList.add('open');
+  fetchText(book);
+}
+window.closeReader = () => {
+  document.getElementById('reader').classList.remove('open');
+  if (!adminMode) document.getElementById('browse-hint').classList.add('show');
+};
+
+async function fetchText(book) {
+  const el = document.getElementById('book-text');
+  const urls = [
+    `https://www.gutenberg.org/files/${book.id}/${book.id}-0.txt`,
+    `https://www.gutenberg.org/files/${book.id}/${book.id}.txt`,
+    `https://www.gutenberg.org/cache/epub/${book.id}/pg${book.id}.txt`,
+    `https://corsproxy.io/?${encodeURIComponent(`https://www.gutenberg.org/files/${book.id}/${book.id}-0.txt`)}`,
+    `https://corsproxy.io/?${encodeURIComponent(`https://www.gutenberg.org/cache/epub/${book.id}/pg${book.id}.txt`)}`,
+  ];
+  let text = null;
+  for (const url of urls) {
+    try { const r = await fetch(url); if (r.ok) { text = await r.text(); break; } } catch { continue; }
+  }
+  el.innerHTML = text ? formatText(strip(text)) : `<div class="msg"><p>텍스트를 직접 불러올 수 없어요.</p>
+    <p style="margin-top:1.1rem"><a href="https://www.gutenberg.org/ebooks/${book.id}" target="_blank">${book.title} — Project Gutenberg에서 읽기 →</a></p></div>`;
+}
+
+function strip(raw) {
+  const s = raw.search(/\*{3}\s*START OF (THIS|THE) PROJECT GUTENBERG/i);
+  const e = raw.search(/\*{3}\s*END OF (THIS|THE) PROJECT GUTENBERG/i);
+  if (s !== -1) { const nl = raw.indexOf('\n', s); return raw.slice(nl+1, e > -1 ? e : undefined).trim(); }
+  return raw.trim();
+}
+
+function formatText(txt) {
+  return txt.split(/\n{2,}/).slice(0, 300).reduce((acc, para) => {
+    const t = para.trim().replace(/\n/g, ' ');
+    if (!t) return acc;
+    if (/^(CHAPTER|Chapter|PART|Part|BOOK|Book)\b/.test(t) && t.length < 80)
+      return acc + `<div class="ch-hd">${t}</div>`;
+    return acc + `<p>${t}</p>`;
+  }, '');
+}
+
+window.onScroll = () => {
+  const el = document.getElementById('rp-body');
+  const p = Math.round(el.scrollTop / (el.scrollHeight - el.clientHeight) * 100) || 0;
+  document.getElementById('rd-pct').textContent = p + '% read';
+};
+
+// ═══════════════════════════════════════════════
+//  MAIN LOADER
+// ═══════════════════════════════════════════════
+async function startLibrary() {
+  const fill = document.getElementById('prog-f');
+  const pctEl = document.getElementById('prog-p');
+  const subEl = document.getElementById('ld-s');
+  const hint  = document.getElementById('ld-h');
+
+  hint.textContent = '(350MB scene — first load takes a moment)';
+  const stages = ['Preparing the reading room','Arranging the volumes','Building the shelves','Lighting the lamps…'];
+  let p = 0, si = 0;
+  const tP = setInterval(() => { p = Math.min(p + Math.random()*2, 88); fill.style.width=p+'%'; pctEl.textContent=Math.round(p)+'%'; }, 350);
+  const tS = setInterval(() => { subEl.textContent = stages[Math.min(si++, stages.length-1)]; }, 3000);
+
+  try {
+    const { Viewer } = await import('./gaussian-splats-3d.module.js');
+
+    // Build the Three.js room — wrap everything in a group, then flip 180° around X
+    // This cancels the cameraUp=[0,-1,0] flip, so we can write room code intuitively (Y-up)
+    const roomScene = new THREE.Scene();
+    const roomGroup = new THREE.Group();
+    roomGroup.rotation.z = Math.PI;  // flips Y only (not Z), keeping depth correct
+    roomScene.add(roomGroup);
+    buildRoom(roomGroup);  // room code uses standard Y-up inside the group
+
+    const container = document.getElementById('splat-container');
+    const viewer = new Viewer({
+      rootElement:            container,
+      threeScene:             roomScene,       // ← inject our room!
+      selfDrivenMode:         true,
+      useBuiltInControls:     true,
+      sharedMemoryForWorkers: false,
+      cameraUp:               [0, -1, 0],
+      initialCameraPosition:  [0, 0, 6],
+      initialCameraLookAt:    [0, 0, 0],
+    });
+
+    await viewer.addSplatScene(PLY_URL, { position: [0, SPLAT_Y, 0] });
+    viewerRef = viewer;
+    currentSplatY = SPLAT_Y;
+    document.getElementById('splat-val').textContent = SPLAT_Y.toFixed(1);
+
+    clearInterval(tP); clearInterval(tS);
+    fill.style.width='100%'; pctEl.textContent='100%';
+    subEl.textContent='Welcome to the library'; hint.textContent='';
+
+    setTimeout(() => {
+      document.getElementById('loading').classList.add('fade');
+      setTimeout(() => document.getElementById('loading').style.display='none', 900);
+      viewer.start();
+      initClickPlace();
+      renderHotspots();
+      document.getElementById('browse-hint').classList.add('show');
+      enableMusicAutoStart();
+    }, 500);
+
+  } catch(err) {
+    console.error('Library error:', err);
+    clearInterval(tP); clearInterval(tS);
+    // fallback: still show room with THREE directly
+    document.getElementById('loading').classList.add('fade');
+    setTimeout(() => document.getElementById('loading').style.display='none', 900);
+    const c = document.getElementById('splat-container');
+    c.innerHTML = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.8rem;color:rgba(201,169,110,.45);font-family:'EB Garamond',serif;text-align:center;padding:2rem">
+      <div style="font-family:'Playfair Display',serif;font-size:1.5rem;font-style:italic;color:rgba(201,169,110,.55)">The Quiet Library</div>
+      <div style="font-size:.78rem;line-height:1.7">${err.message}</div></div>`;
+    initClickPlace(); renderHotspots();
+    document.getElementById('browse-hint').classList.add('show');
+    enableMusicAutoStart();
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  AMBIENT MUSIC  (Web Audio API — no files needed)
+// ═══════════════════════════════════════════════
+let audioCtx = null, masterGain = null, musicPlaying = false;
+let droneNodes = [], chimeTimer = null, musicReady = false;
+
+function ensureCtx() {
+  if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume(); return; }
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0;
+  masterGain.connect(audioCtx.destination);
+}
+
+function buildDrones() {
+  // A minor pad: A2 C3 E3 G3 A3 E4 A4  (frequencies, base amp, detune cents)
+  const layers = [
+    [110.00, 0.11,  5], // A2
+    [130.81, 0.06, -4], // C3
+    [164.81, 0.08,  3], // E3
+    [196.00, 0.04, -6], // G3
+    [220.00, 0.06,  7], // A3
+    [329.63, 0.03, -3], // E4
+    [440.00, 0.02,  4], // A4
+  ];
+  layers.forEach(([freq, amp, det]) => {
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    const lfo  = audioCtx.createOscillator();
+    const lfoG = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    osc.detune.value = det;
+    lfo.type = 'sine';
+    lfo.frequency.value = 0.045 + Math.random() * 0.07; // 0.045–0.115 Hz
+    lfoG.gain.value = amp * 0.28;
+    gain.gain.value = amp;
+    lfo.connect(lfoG); lfoG.connect(gain.gain);
+    osc.connect(gain); gain.connect(masterGain);
+    osc.start(); lfo.start();
+    droneNodes.push(osc, lfo);
+  });
+
+  // Pink noise — room ambiance (Paul Kellet algorithm)
+  const sr  = audioCtx.sampleRate;
+  const buf = audioCtx.createBuffer(1, sr * 3, sr);
+  const d   = buf.getChannelData(0);
+  let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+  for (let i = 0; i < d.length; i++) {
+    const w = Math.random()*2-1;
+    b0=.99886*b0+w*.0555179; b1=.99332*b1+w*.0750759;
+    b2=.96900*b2+w*.1538520; b3=.86650*b3+w*.3104856;
+    b4=.55000*b4+w*.5329522; b5=-.7616*b5-w*.0168980;
+    d[i]=(b0+b1+b2+b3+b4+b5+b6+w*.5362)/7; b6=w*.115926;
+  }
+  const noise  = audioCtx.createBufferSource();
+  const nFilt  = audioCtx.createBiquadFilter();
+  const nGain  = audioCtx.createGain();
+  noise.buffer = buf; noise.loop = true;
+  nFilt.type = 'lowpass'; nFilt.frequency.value = 320;
+  nGain.gain.value = 0.009;
+  noise.connect(nFilt); nFilt.connect(nGain); nGain.connect(masterGain);
+  noise.start();
+  droneNodes.push(noise);
+}
+
+function fireChime() {
+  if (!musicPlaying || !audioCtx) return;
+  // A-minor pentatonic upper octaves: A5 C6 E6 G6 A6
+  const freqs = [880, 1046.5, 1318.5, 1568, 1760];
+  const freq  = freqs[Math.floor(Math.random() * freqs.length)];
+  const osc   = audioCtx.createOscillator();
+  const gain  = audioCtx.createGain();
+  const now   = audioCtx.currentTime;
+  osc.type = 'sine'; osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(0.017, now + 0.06);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 5.5);
+  osc.connect(gain); gain.connect(masterGain);
+  osc.start(); osc.stop(now + 6);
+  chimeTimer = setTimeout(fireChime, (14 + Math.random() * 28) * 1000);
+}
+
+function startMusic() {
+  ensureCtx();
+  if (musicPlaying) return;
+  musicPlaying = true;
+  buildDrones();
+  const now = audioCtx.currentTime;
+  masterGain.gain.setValueAtTime(0, now);
+  masterGain.gain.linearRampToValueAtTime(0.72, now + 5);
+  chimeTimer = setTimeout(fireChime, (6 + Math.random() * 14) * 1000);
+  syncMusicBtn();
+}
+
+function stopMusic() {
+  if (!audioCtx || !musicPlaying) return;
+  musicPlaying = false;
+  clearTimeout(chimeTimer);
+  const now = audioCtx.currentTime;
+  masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+  masterGain.gain.linearRampToValueAtTime(0, now + 1.8);
+  setTimeout(() => {
+    droneNodes.forEach(n => { try { n.stop(); } catch(_){} try { n.disconnect(); } catch(_){} });
+    droneNodes = [];
+  }, 2200);
+  syncMusicBtn();
+}
+
+window.toggleMusic = () => { musicPlaying ? stopMusic() : startMusic(); };
+
+function syncMusicBtn() {
+  const btn = document.getElementById('music-btn');
+  btn.classList.toggle('on', musicPlaying);
+  btn.lastChild.textContent = musicPlaying ? '♫' : '♪';
+}
+
+// Auto-start on first user click after scene is ready
+function enableMusicAutoStart() {
+  document.addEventListener('click', function onFirst() {
+    document.removeEventListener('click', onFirst);
+    document.getElementById('music-btn').classList.add('visible');
+    startMusic();
+  }, { once: true });
+}
+
+// Handle tab visibility (pause / resume)
+document.addEventListener('visibilitychange', () => {
+  if (!audioCtx) return;
+  document.hidden ? audioCtx.suspend() : audioCtx.resume();
+});
+
+startLibrary();
+</script>
+</body>
+</html>
